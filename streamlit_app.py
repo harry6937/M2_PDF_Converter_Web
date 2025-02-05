@@ -1,48 +1,63 @@
 import streamlit as st
 import io
 import zipfile
-import pdfplumber
-from pdf2docx import Converter
 from PIL import Image
 import pandas as pd
 import tempfile
 import subprocess
 from docx2pdf import convert as word_to_pdf
 
+# Try to import pdfplumber and show error if not found
+try:
+    import pdfplumber
+except ImportError:
+    st.error("pdfplumber 库未安装，请检查 requirements.txt 是否正确")
+
+from pdf2docx import Converter
+
+# Display title and description
 st.title("📄 M2 PDF 转换助手")
 st.write("支持：图片转 PDF、PDF 转图片、PDF 转 Excel、PDF 转 Word、Word 转 PDF、Excel 转 PDF")
 
+# Select conversion type
 option = st.selectbox("选择转换功能", [
     "图片转 PDF", "PDF 转图片", "PDF 转 Excel", "PDF 转 Word", "Word 转 PDF", "Excel 转 PDF"
 ])
 
+# File uploader
 file = st.file_uploader("上传文件", type=["png", "jpg", "jpeg", "pdf", "docx", "xlsx"])
 
 if file and st.button("开始转换"):
     file_bytes = file.read()
 
     if option == "图片转 PDF":
+        # Convert image to PDF
         image = Image.open(io.BytesIO(file_bytes))
         pdf_bytes = io.BytesIO()
         image.convert("RGB").save(pdf_bytes, format="PDF")
         st.download_button("📥 下载 PDF", pdf_bytes.getvalue(), "converted.pdf", "application/pdf")
 
     elif option == "PDF 转图片":
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            images = []
-            for page in pdf.pages:
-                img = page.to_image()
-                img_bytes = io.BytesIO()
-                img.original.save(img_bytes, format="PNG")
-                images.append(img_bytes.getvalue())
+        # Use pdfplumber to convert PDF to image
+        if pdfplumber:
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+                images = []
+                for page in pdf.pages:
+                    img = page.to_image()
+                    img_bytes = io.BytesIO()
+                    img.original.save(img_bytes, format="PNG")
+                    images.append(img_bytes.getvalue())
 
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w") as z:
-                for i, img_data in enumerate(images):
-                    z.writestr(f"page_{i+1}.png", img_data)
-            st.download_button("📥 下载图片 ZIP", zip_buffer.getvalue(), "images.zip", "application/zip")
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w") as z:
+                    for i, img_data in enumerate(images):
+                        z.writestr(f"page_{i+1}.png", img_data)
+                st.download_button("📥 下载图片 ZIP", zip_buffer.getvalue(), "images.zip", "application/zip")
+        else:
+            st.error("PDF 转图片功能无法使用，缺少 pdfplumber 库。")
 
     elif option == "PDF 转 Excel":
+        # PDF to Excel conversion (using temporary PDF file)
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
             temp_pdf.write(file_bytes)
             temp_pdf_path = temp_pdf.name
@@ -53,6 +68,7 @@ if file and st.button("开始转换"):
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     elif option == "PDF 转 Word":
+        # PDF to Word conversion
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
             temp_pdf.write(file_bytes)
             temp_pdf_path = temp_pdf.name
@@ -65,6 +81,7 @@ if file and st.button("开始转换"):
                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
     elif option == "Word 转 PDF":
+        # Word to PDF conversion
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as temp_docx:
             temp_docx.write(file_bytes)
             temp_docx_path = temp_docx.name
@@ -74,6 +91,7 @@ if file and st.button("开始转换"):
             st.download_button("📥 下载 PDF", f.read(), "converted.pdf", "application/pdf")
 
     elif option == "Excel 转 PDF":
+        # Excel to PDF conversion using LibreOffice
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_excel:
             temp_excel.write(file_bytes)
             temp_excel_path = temp_excel.name
@@ -85,3 +103,4 @@ if file and st.button("开始转换"):
             st.download_button("📥 下载 PDF", f.read(), "converted.pdf", "application/pdf")
 
 st.write("👨‍💻 开发：M2 PDF 转换助手 🚀")
+
