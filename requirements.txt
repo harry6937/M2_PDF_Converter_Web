@@ -5,3 +5,4 @@ pdf2docx
 docx2pdf
 camelot-py[cv]
 pandas
+opencv-python-headless
